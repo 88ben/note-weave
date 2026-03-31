@@ -6,10 +6,12 @@ NoteWeave is a desktop application that ingests your research notes — Markdown
 
 ## Features
 
-- **Multi-format note import** — drag-and-drop or file-picker support for `.md`, `.docx`, `.pdf`, and `.txt`
+- **Create and import notes** — write new notes directly in-app or import `.md`, `.docx`, `.pdf`, and `.txt` files
+- **Universal markdown format** — all imported notes are converted to Markdown for consistent viewing and editing
+- **Built-in note editor** — view rendered Markdown or switch to raw edit mode; changes auto-clear stale AI summaries
 - **Multi-provider AI** — bring your own API key for OpenAI, Anthropic (Claude), or Google Gemini
 - **5-phase guided workflow** with user approval at every stage:
-  1. **Import & Extract** — AI summarizes each note and surfaces key themes
+  1. **Extract & Summarize** — AI summarizes each note and surfaces key themes
   2. **Cluster & Categorize** — AI groups notes into thematic clusters; rearrange as needed
   3. **Structure** — AI proposes chapter ordering and titles; reorder and rename freely
   4. **Detail** — AI generates a full outline per chapter with sections, key points, and source traceability
@@ -78,13 +80,13 @@ Your key is stored locally in `~/.noteweave/settings.json` and is never sent any
 ## Workflow Overview
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌───────────┐     ┌──────────┐     ┌────────┐
-│ 1. Import & │────▶│ 2. Cluster & │────▶│ 3. Struct- │────▶│ 4. Detail│────▶│5.Export │
-│    Extract   │     │  Categorize  │     │    ure     │     │          │     │        │
-└─────────────┘     └──────────────┘     └───────────┘     └──────────┘     └────────┘
-   Import notes       Group by theme      Order chapters     Full outline      MD/PDF/
-   AI summaries       Rename/merge        Rename/reorder     per chapter       DOCX
-   Review themes      Drag between        Add/remove         Edit sections
+┌──────────────┐     ┌──────────────┐     ┌───────────┐     ┌──────────┐     ┌────────┐
+│ 1. Extract & │────▶│ 2. Cluster & │────▶│ 3. Struct- │────▶│ 4. Detail│────▶│5.Export │
+│  Summarize   │     │  Categorize  │     │    ure     │     │          │     │        │
+└──────────────┘     └──────────────┘     └───────────┘     └──────────┘     └────────┘
+   AI summaries       Group by theme      Order chapters     Full outline      MD/PDF/
+   Key themes         Rename/merge        Rename/reorder     per chapter       DOCX
+   Review/edit        Drag between        Add/remove         Edit sections
 ```
 
 Each phase requires your explicit approval before advancing. You can always go back and re-run an earlier phase.

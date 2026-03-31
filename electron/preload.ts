@@ -9,6 +9,7 @@ const api: IpcApi = {
   updateProject: (project) => ipcRenderer.invoke('update-project', project),
 
   importNotes: (projectId) => ipcRenderer.invoke('import-notes', projectId),
+  createNote: (projectId, title) => ipcRenderer.invoke('create-note', projectId, title),
   getNotes: (projectId) => ipcRenderer.invoke('get-notes', projectId),
   updateNote: (note) => ipcRenderer.invoke('update-note', note),
   deleteNote: (projectId, noteId) => ipcRenderer.invoke('delete-note', projectId, noteId),

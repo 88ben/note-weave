@@ -88,6 +88,22 @@ function registerIpcHandlers(): void {
     return notes
   })
 
+  ipcMain.handle('create-note', async (_e, projectId: string, title: string) => {
+    const filename = title.endsWith('.md') ? title : `${title}.md`
+    const note = {
+      id: require('uuid').v4(),
+      projectId,
+      filename,
+      originalFormat: 'md' as const,
+      content: `# ${title.replace(/\.md$/, '')}\n\n`,
+      extractApproved: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+    await projectStore.saveNote(note)
+    return note
+  })
+
   ipcMain.handle('get-notes', async (_e, projectId: string) => {
     return projectStore.getNotes(projectId)
   })

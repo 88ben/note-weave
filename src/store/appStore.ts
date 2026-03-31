@@ -13,6 +13,7 @@ import type {
 interface AppState {
   projects: Project[]
   activeProjectId: string | null
+  activeNoteId: string | null
   notes: Note[]
   currentPhase: Phase
   settings: AppSettings
@@ -34,8 +35,10 @@ interface AppState {
   setSettingsOpen: (open: boolean) => void
   saveSettings: (settings: AppSettings) => Promise<void>
 
+  setActiveNote: (noteId: string | null) => void
   loadNotes: (projectId: string) => Promise<void>
   importNotes: () => Promise<Note[]>
+  createNote: (title: string) => Promise<Note | null>
   updateNote: (note: Note) => Promise<void>
   deleteNote: (noteId: string) => Promise<void>
 
@@ -60,6 +63,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 export const useAppStore = create<AppState>((set, get) => ({
   projects: [],
   activeProjectId: null,
+  activeNoteId: null,
   notes: [],
   currentPhase: 'import',
   settings: DEFAULT_SETTINGS,
@@ -81,7 +85,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveProject: async (id) => {
-    set({ activeProjectId: id, notes: [], phaseClusterData: null, phaseStructureData: null, phaseDetailData: null })
+    set({ activeProjectId: id, activeNoteId: null, notes: [], phaseClusterData: null, phaseStructureData: null, phaseDetailData: null })
     if (id) {
       const project = await window.api.getProject(id)
       if (project) {
@@ -110,14 +114,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setCurrentPhase: (phase) => {
-    set({ currentPhase: phase })
-    const { activeProjectId } = get()
+    set({ currentPhase: phase, activeNoteId: null })
+    const { activeProjectId, projects } = get()
     if (activeProjectId) {
-      window.api.getProject(activeProjectId).then((p) => {
-        if (p) {
-          window.api.updateProject({ ...p, currentPhase: phase })
+      const local = projects.find((p) => p.id === activeProjectId)
+      if (local) {
+        const ORDER: Phase[] = ['import', 'extract', 'cluster', 'structure', 'detail', 'export']
+        const newIdx = ORDER.indexOf(phase)
+        const storedIdx = ORDER.indexOf(local.currentPhase)
+        if (newIdx > storedIdx) {
+          const updated = { ...local, currentPhase: phase }
+          set({ projects: projects.map((p) => (p.id === activeProjectId ? updated : p)) })
+          window.api.updateProject(updated)
         }
-      })
+      }
     }
   },
 
@@ -128,9 +138,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ settings })
   },
 
+  setActiveNote: (noteId) => set({ activeNoteId: noteId }),
+
   loadNotes: async (projectId) => {
     const notes = await window.api.getNotes(projectId)
     set({ notes })
+  },
+
+  createNote: async (title) => {
+    const { activeProjectId } = get()
+    if (!activeProjectId) return null
+    const note = await window.api.createNote(activeProjectId, title)
+    set((s) => ({ notes: [...s.notes, note], activeNoteId: note.id }))
+    return note
   },
 
   importNotes: async () => {

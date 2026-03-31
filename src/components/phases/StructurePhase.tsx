@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import type { Chapter, Message, PhaseClusterData, PhaseStructureData, ThemeCluster } from '../../../shared/types'
+import { PhaseLayout, ProceedButton, AdjustButton, RedoIconButton, ConfirmModal } from './PhaseLayout'
 
 const STRUCTURE_SYSTEM_PROMPT =
   'You are an expert book editor helping structure a book from organized note clusters. Propose a chapter structure with ordering, titles, descriptions, and which clusters map to each chapter. Respond in JSON: {"chapters": [{"id": "chapter-1", "title": "...", "description": "...", "order": 1, "clusterIds": [...], "noteIds": [...]}]}'
@@ -66,22 +67,6 @@ function TrashIcon({ className }: { className?: string }) {
   )
 }
 
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-    </svg>
-  )
-}
-
-function ArrowRightIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-    </svg>
-  )
-}
-
 export function StructurePhase() {
   const notes = useAppStore((s) => s.notes)
   const activeProjectId = useAppStore((s) => s.activeProjectId)
@@ -95,6 +80,7 @@ export function StructurePhase() {
   const [chapters, setChapters] = useState<Chapter[]>([])
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [confirmRegen, setConfirmRegen] = useState(false)
 
   useEffect(() => {
     if (phaseStructureData?.chapters?.length) {
@@ -237,57 +223,36 @@ export function StructurePhase() {
   )
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <header className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-xl space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-accent-light px-3 py-1 text-xs font-semibold text-accent">
-            <LayersIcon className="h-3.5 w-3.5" />
-            Phase 3
-          </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Structure</h2>
-          <p className="text-sm leading-relaxed text-text-secondary">
-            Turn thematic clusters into an ordered chapter outline. Edit titles and flow, then approve to move on to
-            detailed outlining.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void runStructure()}
+    <PhaseLayout
+      phase="structure"
+      title="Structure"
+      description="Turn thematic clusters into an ordered chapter outline. Edit titles, reorder chapters, then approve to move on to detailed outlining."
+      error={error}
+      onDismissError={() => setError(null)}
+      actions={
+        <>
+          <RedoIconButton
+            onClick={() => {
+              if (chapters.length > 0) { setConfirmRegen(true) } else { void runStructure() }
+            }}
             disabled={!clusterPayload}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-          >
-            <LayersIcon className="h-4 w-4" />
-            {chapters.length ? 'Re-generate' : 'Generate Structure'}
-          </button>
-          <button
-            type="button"
-            onClick={addChapter}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-secondary px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add chapter
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleApprove()}
-            disabled={chapters.length === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-success/15 px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/50"
-          >
-            Approve &amp; continue
-            <ArrowRightIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
-
-      {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-        >
-          {error}
-        </div>
-      )}
+            title={chapters.length ? 'Re-generate structure' : 'Generate structure'}
+          />
+          <AdjustButton onClick={addChapter}>Add Chapter</AdjustButton>
+          <ProceedButton onClick={() => void handleApprove()} disabled={chapters.length === 0}>
+            Approve & Continue
+          </ProceedButton>
+        </>
+      }
+    >
+      <ConfirmModal
+        open={confirmRegen}
+        title="Re-generate structure?"
+        message="This will replace all existing chapters with new AI-generated ones. Your current chapter titles, descriptions, and ordering will be lost."
+        confirmLabel="Re-generate"
+        onConfirm={() => { setConfirmRegen(false); void runStructure() }}
+        onCancel={() => setConfirmRegen(false)}
+      />
 
       {!clusterPayload && (
         <div className="rounded-xl border border-warning/35 bg-warning/10 px-4 py-3 text-sm text-text-secondary">
@@ -297,7 +262,7 @@ export function StructurePhase() {
       )}
 
       {chapters.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface-secondary/60 py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface-secondary/60 py-20 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-light text-accent">
             <LayersIcon className="h-8 w-8" />
           </div>
@@ -310,7 +275,7 @@ export function StructurePhase() {
         <ol className="flex flex-col gap-4" aria-label="Chapters">
           {chapters.map((chapter, index) => (
             <li key={chapter.id}>
-              <article className="overflow-hidden rounded-2xl border border-border bg-surface-secondary/80 shadow-sm ring-1 ring-black/[0.02] transition-shadow hover:shadow-md dark:ring-white/[0.04]">
+              <article className="overflow-hidden rounded-xl border border-border bg-surface-secondary transition-shadow hover:shadow-md">
                 <div className="flex flex-col gap-3 border-b border-border bg-surface-tertiary/40 p-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-bold text-white shadow-sm">
@@ -327,8 +292,8 @@ export function StructurePhase() {
                       <textarea
                         value={chapter.description}
                         onChange={(e) => updateChapter(chapter.id, { description: e.target.value })}
-                        rows={2}
-                        className="w-full resize-none rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-text-secondary placeholder:text-text-tertiary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                        rows={6}
+                        className="w-full max-h-48 resize-y rounded-lg border border-border bg-surface px-2.5 py-2 text-sm text-text-secondary placeholder:text-text-tertiary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
                         placeholder="What this chapter covers…"
                         aria-label="Chapter description"
                       />
@@ -423,6 +388,6 @@ export function StructurePhase() {
           ))}
         </ol>
       )}
-    </div>
+    </PhaseLayout>
   )
 }

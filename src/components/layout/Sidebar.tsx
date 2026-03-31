@@ -2,6 +2,30 @@ import { useCallback, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import type { Project } from '../../../shared/types'
 
+function DocumentPlusIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+      />
+    </svg>
+  )
+}
+
+function ArrowDownTrayIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+      />
+    </svg>
+  )
+}
+
 function GearIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -50,17 +74,22 @@ function InboxIcon({ className }: { className?: string }) {
 export function Sidebar() {
   const projects = useAppStore((s) => s.projects)
   const activeProjectId = useAppStore((s) => s.activeProjectId)
+  const activeNoteId = useAppStore((s) => s.activeNoteId)
   const notes = useAppStore((s) => s.notes)
   const setSettingsOpen = useAppStore((s) => s.setSettingsOpen)
   const setActiveProject = useAppStore((s) => s.setActiveProject)
   const createProject = useAppStore((s) => s.createProject)
   const deleteProject = useAppStore((s) => s.deleteProject)
   const importNotes = useAppStore((s) => s.importNotes)
+  const createNote = useAppStore((s) => s.createNote)
+  const setActiveNote = useAppStore((s) => s.setActiveNote)
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDescription, setNewDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [creatingNote, setCreatingNote] = useState(false)
+  const [newNoteTitle, setNewNoteTitle] = useState('')
 
   const handleSelectProject = useCallback(
     (id: string) => {
@@ -99,6 +128,25 @@ export function Sidebar() {
   const handleImport = useCallback(() => {
     void importNotes()
   }, [importNotes])
+
+  const handleCreateNote = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      const title = newNoteTitle.trim()
+      if (!title) return
+      await createNote(title)
+      setNewNoteTitle('')
+      setCreatingNote(false)
+    },
+    [createNote, newNoteTitle]
+  )
+
+  const handleNoteClick = useCallback(
+    (noteId: string) => {
+      setActiveNote(noteId)
+    },
+    [setActiveNote]
+  )
 
   return (
     <aside className="flex h-full w-[280px] shrink-0 flex-col border-r border-sidebar-hover/60 bg-sidebar text-sidebar-text shadow-[4px_0_24px_rgba(0,0,0,0.12)]">
@@ -213,33 +261,86 @@ export function Sidebar() {
 
           {activeProjectId && (
             <div className="mt-5 border-t border-white/5 pt-4">
-              <h3 className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-text-dim">Notes</h3>
-              {notes.length === 0 ? (
+              <div className="flex items-center justify-between px-2 mb-2">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-sidebar-text-dim">Notes</h3>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={handleImport}
+                    className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-sidebar-text-dim transition-all duration-200 hover:bg-sidebar-hover hover:text-accent-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    aria-label="Import notes"
+                    title="Import notes"
+                  >
+                    <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingNote((c) => !c)}
+                    className="no-drag flex h-7 w-7 items-center justify-center rounded-md text-sidebar-text-dim transition-all duration-200 hover:bg-sidebar-hover hover:text-accent-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    aria-label={creatingNote ? 'Cancel new note' : 'Create new note'}
+                    title="Create new note"
+                  >
+                    <DocumentPlusIcon className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {creatingNote && (
+                <form
+                  onSubmit={handleCreateNote}
+                  className="mx-2 mb-2 flex gap-1.5"
+                >
+                  <input
+                    className="min-w-0 flex-1 rounded-lg border border-white/10 bg-sidebar-active/50 px-2 py-1.5 text-xs text-sidebar-text placeholder:text-sidebar-text-dim/80 focus:border-accent/60 focus:outline-none focus:ring-1 focus:ring-accent/40"
+                    placeholder="Note title…"
+                    value={newNoteTitle}
+                    onChange={(e) => setNewNoteTitle(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setCreatingNote(false)
+                        setNewNoteTitle('')
+                      }
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newNoteTitle.trim()}
+                    className="shrink-0 rounded-lg bg-accent px-2 py-1.5 text-xs font-medium text-white transition-all hover:bg-accent-hover disabled:opacity-40"
+                  >
+                    Add
+                  </button>
+                </form>
+              )}
+
+              {notes.length === 0 && !creatingNote ? (
                 <div className="mx-1 flex flex-col items-center gap-2 rounded-xl border border-dashed border-white/10 bg-sidebar-hover/20 px-3 py-6 text-center">
                   <InboxIcon className="h-8 w-8 text-sidebar-text-dim/60" />
-                  <p className="text-xs text-sidebar-text-dim">No notes in this project.</p>
+                  <p className="text-xs text-sidebar-text-dim">No notes yet.</p>
                 </div>
               ) : (
                 <ul className="space-y-0.5">
-                  {notes.map((note) => (
-                    <li
-                      key={note.id}
-                      className="truncate rounded-lg px-2.5 py-1.5 text-xs text-sidebar-text-dim transition-colors duration-200 hover:bg-sidebar-hover/80 hover:text-sidebar-text"
-                      title={note.filename}
-                    >
-                      {note.filename}
-                    </li>
-                  ))}
+                  {notes.map((note) => {
+                    const isActive = note.id === activeNoteId
+                    return (
+                      <li key={note.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleNoteClick(note.id)}
+                          className={`w-full truncate rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors duration-200 ${
+                            isActive
+                              ? 'bg-sidebar-active text-sidebar-text ring-1 ring-white/10'
+                              : 'text-sidebar-text-dim hover:bg-sidebar-hover/80 hover:text-sidebar-text'
+                          }`}
+                          title={note.filename}
+                        >
+                          {note.filename}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
-              <button
-                type="button"
-                onClick={handleImport}
-                className="no-drag mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-sidebar-hover/30 py-2 text-xs font-medium text-sidebar-text transition-all duration-200 hover:border-accent/40 hover:bg-sidebar-hover hover:text-accent-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-              >
-                <InboxIcon className="h-3.5 w-3.5" />
-                Import notes
-              </button>
             </div>
           )}
         </nav>

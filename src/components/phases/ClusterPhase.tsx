@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import type { Message, Note, PhaseClusterData, ThemeCluster } from '../../../shared/types'
+import { PhaseLayout, ProceedButton, AdjustButton, RedoIconButton, ConfirmModal } from './PhaseLayout'
 
 const CLUSTER_SYSTEM_PROMPT =
   'You are an expert book editor helping organize research notes into thematic clusters that will eventually become book chapters. Group the following note summaries into logical thematic clusters. Respond in JSON: {"clusters": [{"id": "cluster-1", "name": "...", "description": "...", "noteIds": ["..."]}]}'
@@ -46,22 +47,6 @@ function TrashIcon({ className }: { className?: string }) {
   )
 }
 
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-    </svg>
-  )
-}
-
-function ArrowRightIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-    </svg>
-  )
-}
-
 export function ClusterPhase() {
   const notes = useAppStore((s) => s.notes)
   const activeProjectId = useAppStore((s) => s.activeProjectId)
@@ -74,6 +59,7 @@ export function ClusterPhase() {
   const [clusters, setClusters] = useState<ThemeCluster[]>([])
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [confirmRegen, setConfirmRegen] = useState(false)
 
   useEffect(() => {
     if (phaseClusterData?.clusters?.length) {
@@ -206,59 +192,38 @@ export function ClusterPhase() {
   }, [clusters, generatedAt, savePhaseClusterData, setCurrentPhase])
 
   return (
-    <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
-      <header className="flex flex-col gap-3 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-2xl space-y-2">
-          <div className="inline-flex items-center gap-2 rounded-full bg-accent-light px-3 py-1 text-xs font-semibold text-accent">
-            <SparklesIcon className="h-3.5 w-3.5" />
-            Phase 2
-          </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Cluster &amp; Categorize</h2>
-          <p className="text-sm leading-relaxed text-text-secondary">
-            Group your note summaries into thematic clusters. Refine names and membership, then approve to shape your
-            book structure in the next step.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void runClustering()}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-          >
-            <SparklesIcon className="h-4 w-4" />
-            {clusters.length ? 'Re-generate' : 'Generate Clusters'}
-          </button>
-          <button
-            type="button"
-            onClick={addCluster}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-secondary px-4 py-2.5 text-sm font-medium text-text-primary transition-colors hover:bg-surface-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add cluster
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleApprove()}
-            disabled={clusters.length === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-transparent bg-success/15 px-4 py-2.5 text-sm font-semibold text-success transition-colors hover:bg-success/25 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/50"
-          >
-            Approve &amp; continue
-            <ArrowRightIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
-
-      {error && (
-        <div
-          role="alert"
-          className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
-        >
-          {error}
-        </div>
-      )}
+    <PhaseLayout
+      phase="cluster"
+      title="Cluster & Categorize"
+      description="Group your note summaries into thematic clusters. Refine names and membership, then approve to shape your book structure."
+      error={error}
+      onDismissError={() => setError(null)}
+      actions={
+        <>
+          <RedoIconButton
+            onClick={() => {
+              if (clusters.length > 0) { setConfirmRegen(true) } else { void runClustering() }
+            }}
+            title={clusters.length ? 'Re-generate clusters' : 'Generate clusters'}
+          />
+          <AdjustButton onClick={addCluster}>Add Cluster</AdjustButton>
+          <ProceedButton onClick={() => void handleApprove()} disabled={clusters.length === 0}>
+            Approve & Continue
+          </ProceedButton>
+        </>
+      }
+    >
+      <ConfirmModal
+        open={confirmRegen}
+        title="Re-generate clusters?"
+        message="This will replace all existing clusters with new AI-generated ones. Your current cluster names, descriptions, and note assignments will be lost."
+        confirmLabel="Re-generate"
+        onConfirm={() => { setConfirmRegen(false); void runClustering() }}
+        onCancel={() => setConfirmRegen(false)}
+      />
 
       {orphanNotes.length > 0 && (
-        <section className="rounded-2xl border border-warning/35 bg-warning/10 px-4 py-4">
+        <section className="rounded-xl border border-warning/35 bg-warning/10 px-4 py-4">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-warning">Unassigned notes</h3>
           <p className="mb-3 text-xs text-text-secondary">
             These notes are not in any cluster yet. Move each into a cluster below.
@@ -292,7 +257,7 @@ export function ClusterPhase() {
       )}
 
       {clusters.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface-secondary/60 py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface-secondary/60 py-20 text-center">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-light text-accent">
             <SparklesIcon className="h-8 w-8" />
           </div>
@@ -307,40 +272,38 @@ export function ClusterPhase() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {clusters.map((cluster) => (
             <article
               key={cluster.id}
-              className="flex flex-col rounded-2xl border border-border bg-surface-secondary/80 shadow-sm ring-1 ring-black/[0.02] transition-shadow hover:shadow-md dark:ring-white/[0.04]"
+              className="flex flex-col rounded-xl border border-border bg-surface-secondary p-4"
             >
-              <div className="border-b border-border p-4">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <input
-                    type="text"
-                    value={cluster.name}
-                    onChange={(e) => updateCluster(cluster.id, { name: e.target.value })}
-                    className="min-w-0 flex-1 rounded-lg border border-transparent bg-surface px-2 py-1 text-sm font-semibold text-text-primary placeholder:text-text-tertiary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                    aria-label="Cluster name"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => deleteCluster(cluster.id)}
-                    className="shrink-0 rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-                    aria-label={`Delete cluster ${cluster.name}`}
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-                <textarea
-                  value={cluster.description}
-                  onChange={(e) => updateCluster(cluster.id, { description: e.target.value })}
-                  rows={3}
-                  className="w-full resize-none rounded-lg border border-border bg-surface px-2.5 py-2 text-xs leading-relaxed text-text-secondary placeholder:text-text-tertiary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
-                  placeholder="Short description of this theme…"
-                  aria-label="Cluster description"
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <input
+                  type="text"
+                  value={cluster.name}
+                  onChange={(e) => updateCluster(cluster.id, { name: e.target.value })}
+                  className="min-w-0 flex-1 rounded-lg border border-transparent bg-surface px-2 py-1 text-sm font-semibold text-text-primary placeholder:text-text-tertiary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                  aria-label="Cluster name"
                 />
+                <button
+                  type="button"
+                  onClick={() => deleteCluster(cluster.id)}
+                  className="shrink-0 rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                  aria-label={`Delete cluster ${cluster.name}`}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
               </div>
-              <div className="min-h-[120px] flex-1 space-y-2 overflow-y-auto p-3">
+              <textarea
+                value={cluster.description}
+                onChange={(e) => updateCluster(cluster.id, { description: e.target.value })}
+                rows={3}
+                className="mb-3 w-full resize-none rounded-lg border border-border bg-surface px-2.5 py-2 text-xs leading-relaxed text-text-secondary placeholder:text-text-tertiary focus:border-border-focus focus:outline-none focus:ring-1 focus:ring-border-focus"
+                placeholder="Short description of this theme…"
+                aria-label="Cluster description"
+              />
+              <div className="min-h-[120px] flex-1 space-y-2">
                 {cluster.noteIds.length === 0 ? (
                   <p className="py-6 text-center text-xs text-text-tertiary">No notes in this cluster</p>
                 ) : (
@@ -360,7 +323,7 @@ export function ClusterPhase() {
                       return (
                         <li
                           key={nid}
-                          className="rounded-xl border border-border bg-surface p-2.5 shadow-sm"
+                          className="rounded-xl border border-border bg-surface p-2.5"
                         >
                           <p className="truncate text-xs font-medium text-text-primary">{note.filename}</p>
                           <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-text-tertiary">
@@ -395,6 +358,6 @@ export function ClusterPhase() {
           ))}
         </div>
       )}
-    </div>
+    </PhaseLayout>
   )
 }

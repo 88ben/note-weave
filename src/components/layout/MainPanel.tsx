@@ -4,6 +4,7 @@ import { ClusterPhase } from '../phases/ClusterPhase'
 import { StructurePhase } from '../phases/StructurePhase'
 import { DetailPhase } from '../phases/DetailPhase'
 import { ExportPhase } from '../phases/ExportPhase'
+import { NoteEditor } from '../notes/NoteEditor'
 
 function Spinner({ className }: { className?: string }) {
   return (
@@ -17,6 +18,7 @@ function Spinner({ className }: { className?: string }) {
 
 export function MainPanel() {
   const activeProjectId = useAppStore((s) => s.activeProjectId)
+  const activeNoteId = useAppStore((s) => s.activeNoteId)
   const currentPhase = useAppStore((s) => s.currentPhase)
   const isLoading = useAppStore((s) => s.isLoading)
   const loadingMessage = useAppStore((s) => s.loadingMessage)
@@ -61,6 +63,8 @@ export function MainPanel() {
             Choose a project from the sidebar to import notes, run extraction, and weave them into a structured outline.
           </p>
         </div>
+      ) : activeNoteId ? (
+        <NoteEditor />
       ) : (
         <div className="h-full overflow-auto p-6 transition-opacity duration-200">{phaseBody}</div>
       )}

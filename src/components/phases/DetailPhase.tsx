@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppStore } from '../../store/appStore'
 import type { Chapter, ChapterOutline, Message, OutlineSection } from '../../../shared/types'
+import { PhaseLayout, ProceedButton, RedoButton, RedoIconButton, ConfirmModal, Spinner } from './PhaseLayout'
 
 const SYSTEM_PROMPT = `You are an expert book editor creating a detailed chapter outline. Given the chapter information and source notes, create a comprehensive outline with sections, subsections (2-3 levels deep), key points (3-7 per section), source note references, and transitions. Respond in JSON: {"sections": [{"id": "...", "title": "...", "level": 1, "keyPoints": [...], "sourceNoteIds": [...], "transition": "...", "children": [...]}]}`
 
@@ -254,8 +255,10 @@ export function DetailPhase() {
   const [localOutlines, setLocalOutlines] = useState<ChapterOutline[]>([])
   const localOutlinesRef = useRef<ChapterOutline[]>([])
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(() => new Set())
   const [error, setError] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [confirmGenerate, setConfirmGenerate] = useState(false)
 
   useEffect(() => {
     localOutlinesRef.current = localOutlines
@@ -363,7 +366,7 @@ export function DetailPhase() {
     setError(null)
     setIsGenerating(true)
     try {
-      setLoading(true, `Regenerating outline for “${chapter.title}”…`)
+      setLoading(true, `Regenerating outline for "${chapter.title}"…`)
       const sections = await runGenerationForChapter(chapter)
       const merged = mergeChapterOutline(localOutlinesRef.current, chapter, sections)
       localOutlinesRef.current = merged
@@ -380,6 +383,15 @@ export function DetailPhase() {
       setIsGenerating(false)
     }
   }
+
+  const toggleChapterExpanded = useCallback((chapterId: string) => {
+    setExpandedChapters((prev) => {
+      const next = new Set(prev)
+      if (next.has(chapterId)) next.delete(chapterId)
+      else next.add(chapterId)
+      return next
+    })
+  }, [])
 
   const toggleCollapsed = useCallback((id: string) => {
     setCollapsedIds((prev) => {
@@ -453,49 +465,45 @@ export function DetailPhase() {
   const canApprove = hasAnySections && !isGenerating
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-16">
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-surface-secondary via-surface to-accent-light/30 p-8 shadow-sm">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/10 blur-3xl" aria-hidden />
-        <div className="relative">
-          <p className="text-xs font-semibold uppercase tracking-widest text-accent">Phase 4</p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-text-primary">Detailed Outline</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
-            Turn each chapter into a nested outline with key points, source references, and transitions. Generate with AI,
-            refine inline, then approve to export.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void generateAll()}
-              disabled={isGenerating || !sortedChapters.length}
-              className="inline-flex items-center justify-center rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-accent/25 transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isGenerating ? 'Generating…' : 'Generate Outlines'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleApprove()}
-              disabled={!canApprove}
-              className="inline-flex items-center justify-center rounded-xl border border-border bg-surface px-5 py-2.5 text-sm font-semibold text-text-primary transition hover:border-accent/40 hover:bg-surface-secondary disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              Approve &amp; Continue
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {error ? (
-        <div
-          className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-text-primary"
-          role="alert"
-        >
-          <span className="mt-0.5 font-semibold text-danger">Error</span>
-          <p className="flex-1 text-text-secondary">{error}</p>
-          <button type="button" onClick={() => setError(null)} className="shrink-0 text-xs font-medium text-danger hover:underline">
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+    <PhaseLayout
+      phase="detail"
+      title="Detailed Outline"
+      description="Turn each chapter into a nested outline with key points, source references, and transitions. Generate with AI, refine inline, then approve to export."
+      error={error}
+      onDismissError={() => setError(null)}
+      actions={
+        <>
+          {isGenerating ? (
+            <RedoButton onClick={() => {}} disabled>
+              <Spinner className="h-4 w-4" />
+              Generating…
+            </RedoButton>
+          ) : (
+            <RedoIconButton
+              onClick={() => {
+                if (localOutlines.some((o) => o.sections.length > 0)) { setConfirmGenerate(true) } else { void generateAll() }
+              }}
+              disabled={!sortedChapters.length}
+              title="Generate outlines"
+            />
+          )}
+          <ProceedButton
+            onClick={() => void handleApprove()}
+            disabled={!canApprove}
+          >
+            Approve & Continue
+          </ProceedButton>
+        </>
+      }
+    >
+      <ConfirmModal
+        open={confirmGenerate}
+        title="Re-generate all outlines?"
+        message="This will replace all existing chapter outlines with new AI-generated ones. Any edits you've made to sections, key points, and transitions will be lost."
+        confirmLabel="Re-generate"
+        onConfirm={() => { setConfirmGenerate(false); void generateAll() }}
+        onCancel={() => setConfirmGenerate(false)}
+      />
 
       {!phaseStructureData?.chapters?.length ? (
         <div className="rounded-xl border border-dashed border-border bg-surface-secondary/80 px-6 py-12 text-center">
@@ -503,52 +511,69 @@ export function DetailPhase() {
           <p className="mt-1 text-xs text-text-tertiary">Complete the Structure phase to define chapters, then return here.</p>
         </div>
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {sortedChapters.map((chapter) => {
             const outline = localOutlines.find((o) => o.chapterId === chapter.id)
+            const isExpanded = expandedChapters.has(chapter.id)
+            const hasSections = Boolean(outline?.sections.length)
             return (
               <section
                 key={chapter.id}
-                className="rounded-2xl border border-border bg-surface-secondary/60 p-6 shadow-sm backdrop-blur-sm"
+                className="rounded-xl border border-border bg-surface-secondary"
               >
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
+                <div className="flex items-center gap-3 p-4">
+                  <div className="min-w-0 flex-1">
                     <h3 className="text-lg font-semibold text-text-primary">{chapter.title}</h3>
-                    <p className="mt-1 text-sm text-text-secondary">{chapter.description}</p>
+                    <p className="mt-0.5 text-sm text-text-secondary">{chapter.description}</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void regenerateChapter(chapter)}
-                    disabled={isGenerating}
-                    className="shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-accent/35 hover:text-accent disabled:opacity-50"
-                  >
-                    Re-generate Chapter
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <RedoIconButton
+                      onClick={() => void regenerateChapter(chapter)}
+                      disabled={isGenerating}
+                      title={`Re-generate outline for "${chapter.title}"`}
+                    />
+                    {hasSections && (
+                      <button
+                        type="button"
+                        onClick={() => toggleChapterExpanded(chapter.id)}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-text-secondary transition-colors hover:bg-surface-tertiary hover:text-text-primary"
+                        aria-expanded={isExpanded}
+                        title={isExpanded ? 'Collapse chapter' : 'Expand chapter'}
+                      >
+                        <svg className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {outline?.sections.length ? (
-                  <SectionTree
-                    sections={outline.sections}
-                    depth={0}
-                    notesById={notesById}
-                    collapsedIds={collapsedIds}
-                    toggleCollapsed={toggleCollapsed}
-                    onTitleChange={(id, t) => onTitleChange(chapter.id, id, t)}
-                    onKeyPointChange={(id, i, v) => onKeyPointChange(chapter.id, id, i, v)}
-                    onAddKeyPoint={(id) => onAddKeyPoint(chapter.id, id)}
-                    onRemoveKeyPoint={(id, i) => onRemoveKeyPoint(chapter.id, id, i)}
-                    onTransitionChange={(id, tr) => onTransitionChange(chapter.id, id, tr)}
-                  />
-                ) : (
-                  <p className="rounded-lg border border-dashed border-border bg-surface px-4 py-8 text-center text-sm text-text-tertiary">
-                    No outline for this chapter yet. Use &ldquo;Generate Outlines&rdquo; to build all chapters, or
-                    &ldquo;Re-generate Chapter&rdquo; for this one only.
-                  </p>
-                )}
+                {isExpanded && hasSections ? (
+                  <div className="border-t border-border p-6 pt-4">
+                    <SectionTree
+                      sections={outline!.sections}
+                      depth={0}
+                      notesById={notesById}
+                      collapsedIds={collapsedIds}
+                      toggleCollapsed={toggleCollapsed}
+                      onTitleChange={(id, t) => onTitleChange(chapter.id, id, t)}
+                      onKeyPointChange={(id, i, v) => onKeyPointChange(chapter.id, id, i, v)}
+                      onAddKeyPoint={(id) => onAddKeyPoint(chapter.id, id)}
+                      onRemoveKeyPoint={(id, i) => onRemoveKeyPoint(chapter.id, id, i)}
+                      onTransitionChange={(id, tr) => onTransitionChange(chapter.id, id, tr)}
+                    />
+                  </div>
+                ) : !hasSections ? (
+                  <div className="border-t border-border px-4 py-6">
+                    <p className="rounded-lg border border-dashed border-border bg-surface px-4 py-8 text-center text-sm text-text-tertiary">
+                      No outline for this chapter yet. Use &ldquo;Generate Outlines&rdquo; to build all, or the regenerate button for this one.
+                    </p>
+                  </div>
+                ) : null}
               </section>
             )
           })}
         </div>
       )}
-    </div>
+    </PhaseLayout>
   )
 }

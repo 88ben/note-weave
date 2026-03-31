@@ -12,8 +12,8 @@ export type Phase = 'import' | 'extract' | 'cluster' | 'structure' | 'detail' | 
 export const PHASE_ORDER: Phase[] = ['import', 'extract', 'cluster', 'structure', 'detail', 'export']
 
 export const PHASE_LABELS: Record<Phase, string> = {
-  import: 'Import & Extract',
-  extract: 'Import & Extract',
+  import: 'Extract & Summarize',
+  extract: 'Extract & Summarize',
   cluster: 'Cluster & Categorize',
   structure: 'Structure',
   detail: 'Detail',
@@ -132,6 +132,7 @@ export interface IpcApi {
 
   // Note operations
   importNotes(projectId: string): Promise<Note[]>
+  createNote(projectId: string, title: string): Promise<Note>
   getNotes(projectId: string): Promise<Note[]>
   updateNote(note: Note): Promise<void>
   deleteNote(projectId: string, noteId: string): Promise<void>

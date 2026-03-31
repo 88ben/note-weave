@@ -11,8 +11,10 @@ export class FileParser {
 
     switch (ext) {
       case 'md':
-      case 'txt':
         content = await fs.readFile(filePath, 'utf-8')
+        break
+      case 'txt':
+        content = this.plainTextToMarkdown(await fs.readFile(filePath, 'utf-8'))
         break
       case 'docx':
         content = await this.parseDocx(filePath)
@@ -21,16 +23,16 @@ export class FileParser {
         content = await this.parsePdf(filePath)
         break
       default:
-        content = await fs.readFile(filePath, 'utf-8')
+        content = this.plainTextToMarkdown(await fs.readFile(filePath, 'utf-8'))
     }
 
-    const format = (['md', 'docx', 'pdf', 'txt'].includes(ext) ? ext : 'txt') as Note['originalFormat']
+    const originalFormat = (['md', 'docx', 'pdf', 'txt'].includes(ext) ? ext : 'txt') as Note['originalFormat']
 
     return {
       id: uuidv4(),
       projectId,
       filename,
-      originalFormat: format,
+      originalFormat,
       content,
       extractApproved: false,
       createdAt: new Date().toISOString(),
@@ -41,7 +43,7 @@ export class FileParser {
   private async parseDocx(filePath: string): Promise<string> {
     const mammoth = await import('mammoth')
     const buffer = await fs.readFile(filePath)
-    const result = await mammoth.extractRawText({ buffer })
+    const result = await mammoth.convertToMarkdown({ buffer })
     return result.value
   }
 
@@ -49,6 +51,14 @@ export class FileParser {
     const pdfParse = (await import('pdf-parse')).default
     const buffer = await fs.readFile(filePath)
     const result = await pdfParse(buffer)
-    return result.text
+    return this.plainTextToMarkdown(result.text)
+  }
+
+  private plainTextToMarkdown(text: string): string {
+    return text
+      .split(/\n{3,}/)
+      .map((block) => block.trim())
+      .filter(Boolean)
+      .join('\n\n')
   }
 }

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import type { ExportFormat, OutlineSection } from '../../../shared/types'
+import { PhaseLayout, ProceedButton, Spinner } from './PhaseLayout'
 
 function PreviewSection({ section, depth }: { section: OutlineSection; depth: number }) {
   const pad = Math.min(depth, 5) * 14
@@ -133,37 +134,31 @@ export function ExportPhase() {
     }
   }, [activeProjectId, selectedFormat, setLoading])
 
-  const startOver = () => {
-    setExportedPath(null)
-    setExportError(null)
-    setCurrentPhase('import')
-  }
-
   return (
-    <div className="mx-auto max-w-4xl space-y-8 pb-20">
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-accent-light/90 via-surface-secondary to-surface p-10 text-center shadow-lg shadow-accent/10">
-        <div className="pointer-events-none absolute inset-0 opacity-[0.35]" aria-hidden>
-          <div className="absolute -left-20 top-10 h-56 w-56 rounded-full bg-success/25 blur-3xl" />
-          <div className="absolute -right-10 bottom-0 h-48 w-48 rounded-full bg-accent/20 blur-3xl" />
-          <div className="absolute left-1/2 top-0 h-32 w-64 -translate-x-1/2 rounded-full bg-warning/15 blur-2xl" />
-        </div>
-        <div className="relative mx-auto max-w-xl">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-success/15 text-success ring-4 ring-success/10">
-            <svg className="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Phase 5</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-text-primary">Export</h2>
-          <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-            You have shaped your notes into a full book outline. Pick a format, export once, and celebrate — this is the
-            finish line.
-          </p>
-        </div>
-      </div>
-
+    <PhaseLayout
+      phase="export"
+      title="Export"
+      description="Your notes have been shaped into a full book outline. Pick a format and export."
+      error={exportError}
+      onDismissError={() => setExportError(null)}
+      actions={
+        <ProceedButton
+          onClick={() => void handleExport()}
+          disabled={isExporting || !activeProjectId || !hasOutline}
+        >
+          {isExporting ? (
+            <>
+              <Spinner className="h-4 w-4" />
+              Exporting…
+            </>
+          ) : (
+            'Export'
+          )}
+        </ProceedButton>
+      }
+    >
       {!hasOutline ? (
-        <div className="rounded-2xl border border-dashed border-warning/40 bg-warning/5 px-6 py-10 text-center">
+        <div className="rounded-xl border border-dashed border-warning/40 bg-warning/5 px-6 py-10 text-center">
           <p className="text-sm font-medium text-text-primary">No detailed outline to export</p>
           <p className="mt-2 text-xs text-text-secondary">
             Complete the Detail phase and approve your outline before exporting.
@@ -178,7 +173,7 @@ export function ExportPhase() {
         </div>
       ) : (
         <>
-          <section className="rounded-2xl border border-border bg-surface-secondary/70 p-6 shadow-sm">
+          <section className="rounded-xl border border-border bg-surface-secondary/70 p-6">
             <h3 className="text-sm font-semibold text-text-primary">Outline preview</h3>
             <p className="mt-1 text-xs text-text-tertiary">Read-only snapshot of your approved structure.</p>
             <div className="mt-5 max-h-[min(420px,50vh)] space-y-8 overflow-y-auto rounded-xl border border-border/80 bg-surface p-5">
@@ -197,7 +192,7 @@ export function ExportPhase() {
 
           <section>
             <h3 className="mb-4 text-sm font-semibold text-text-primary">Export format</h3>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {FORMAT_OPTIONS.map(({ id, name, ext, description, Icon }) => {
                 const selected = selectedFormat === id
                 return (
@@ -209,9 +204,9 @@ export function ExportPhase() {
                       setExportedPath(null)
                       setExportError(null)
                     }}
-                    className={`flex flex-col items-start rounded-2xl border-2 p-5 text-left transition-all duration-200 ${
+                    className={`flex flex-col items-start rounded-xl border-2 p-5 text-left transition-all duration-200 ${
                       selected
-                        ? 'border-accent bg-accent-light/50 shadow-md shadow-accent/15 ring-1 ring-accent/20'
+                        ? 'border-accent bg-accent-light/50 ring-1 ring-accent/20'
                         : 'border-border bg-surface-secondary/80 hover:border-accent/30 hover:bg-surface-secondary'
                     }`}
                   >
@@ -231,34 +226,6 @@ export function ExportPhase() {
             </div>
           </section>
 
-          <div className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              type="button"
-              onClick={() => void handleExport()}
-              disabled={isExporting || !activeProjectId}
-              className="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-gradient-to-r from-accent to-accent-hover px-8 py-3 text-sm font-bold text-white shadow-lg shadow-accent/30 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isExporting ? 'Exporting…' : 'Export'}
-            </button>
-            <button
-              type="button"
-              onClick={startOver}
-              className="text-sm font-medium text-text-secondary underline-offset-4 hover:text-accent hover:underline"
-            >
-              Start over — back to Phase 1
-            </button>
-          </div>
-
-          {exportError ? (
-            <div
-              className="rounded-xl border border-danger/35 bg-danger/5 px-4 py-3 text-sm text-text-primary"
-              role="alert"
-            >
-              <span className="font-semibold text-danger">Export failed — </span>
-              {exportError}
-            </div>
-          ) : null}
-
           {exportedPath ? (
             <div className="rounded-xl border border-success/35 bg-success/10 px-4 py-4 text-sm">
               <p className="font-semibold text-success">Export complete</p>
@@ -267,6 +234,6 @@ export function ExportPhase() {
           ) : null}
         </>
       )}
-    </div>
+    </PhaseLayout>
   )
 }

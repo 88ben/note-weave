@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/appStore'
 import type { Phase } from '../../../shared/types'
 
 const STEPPER_STEPS: { label: string; phases: Phase[] }[] = [
-  { label: '1. Import & Extract', phases: ['import', 'extract'] },
+  { label: '1. Extract & Summarize', phases: ['import', 'extract'] },
   { label: '2. Cluster', phases: ['cluster'] },
   { label: '3. Structure', phases: ['structure'] },
   { label: '4. Detail', phases: ['detail'] },
@@ -69,16 +69,16 @@ export function TopBar() {
 
       <nav className="flex flex-1 items-center justify-center gap-1 px-4" aria-label="Workflow phases">
         {STEPPER_STEPS.map((step, index) => {
-          const completed = index < currentStepIndex
           const current = index === currentStepIndex
           const reachable = index <= maxReachableStep
+          const completed = reachable && !current
           const clickable = Boolean(activeProjectId && reachable)
 
           return (
             <div key={step.label} className="flex items-center">
               {index > 0 && (
                 <div
-                  className={`mx-1 hidden h-px w-6 sm:block ${index <= currentStepIndex ? 'bg-success/40' : 'bg-border'}`}
+                  className={`mx-1 hidden h-px w-6 sm:block ${index <= maxReachableStep ? 'bg-success/40' : 'bg-border'}`}
                   aria-hidden
                 />
               )}
